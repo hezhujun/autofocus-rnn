@@ -165,10 +165,10 @@ class FiveCrop(object):
         else:
             self.size = size
         self.point_center = (0.5, 0.5)
-        self.point1 = (0.3, 0.3)
-        self.point2 = (0.3, 0.7)
-        self.point3 = (0.7, 0.3)
-        self.point4 = (0.7, 0.7)
+        self.point1 = (0.2, 0.2)
+        self.point2 = (0.2, 0.8)
+        self.point3 = (0.8, 0.2)
+        self.point4 = (0.8, 0.8)
         self.points = [self.point_center, self.point1, self.point2, self.point3, self.point4]
 
     def __call__(self, image):
