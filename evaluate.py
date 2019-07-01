@@ -10,9 +10,6 @@ args = parser.parse_args()
 
 os.environ["CUDA_VISIBLE_DEVICES"] = config["gpu_devices"]
 
-train_dataset = AutoFocusDataset(config["train_dataset_json_files"], config["dataset_dir"], mode="train")
-val_dataset = AutoFocusDataset(config["val_dataset_json_files"], config["dataset_dir"], mode="val")
-
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 device_cpu = torch.device("cpu")
 
@@ -48,45 +45,94 @@ def get_feature(microscopy):
         assert False
 
 
-def evaluate(model, dataset, iteration):
+def evaluate(model, val_groups, T):
     model.eval()
-    metrics = [[] for i in range(iteration)]
-    microscopies = []
-    for group, pos_idx in dataset:
-        microscopy = Microscope(group, pos_idx, FiveCrop(500))
-        with torch.set_grad_enabled(False):
-            x = get_feature(microscopy)
-            a = torch.zeros(x.size()[0], config["a_dim"]).to(device)
-            c = torch.zeros(x.size()[0], config["a_dim"]).to(device)
-            a, c, y = model(x, a, c, 0)
-            y = np.around(np.mean(y.cpu().data.numpy()) * 50).astype(np.int)
-            microscopy.move(y)
-            metrics[0].append([abs(microscopy.idx_distance_to_peak()), microscopy.idx_distance_to_peak() == 0, abs(microscopy.idx_distance_to_peak()) <= 1])
-            for iter in range(1, iteration):
-                x = get_feature(microscopy)
-                a, c, y = model(x, a, c, iter)
+    # metrics: focus error, focus accuracy, focus accuracy in depth of field, seaching times
+    metrics = [[] for _ in range(T + 1)]   # 1 for the post stage
+    for group in val_groups:
+        for pos in group.positions:
+            direction = 1
+            microscope = Microscope(group, pos.pos_idx, FiveCrop(500))
+            with torch.set_grad_enabled(False):
+                x = get_feature(microscope)
+                a = torch.zeros(x.size()[0], config["a_dim"]).to(device)
+                c = torch.zeros(x.size()[0], config["a_dim"]).to(device)
+                a, c, y = model(x, a, c, 0)
                 y = np.around(np.mean(y.cpu().data.numpy()) * 50).astype(np.int)
-                microscopy.move(y)
-                metrics[iter].append([abs(microscopy.idx_distance_to_peak()), microscopy.idx_distance_to_peak() == 0, abs(microscopy.idx_distance_to_peak()) <= 1])
-            microscopy.history()
-            microscopies.append(microscopy)
+                if y != 0:
+                    direction = np.sign(y)
+                microscope.move(y)
+                metrics[0].append([
+                    abs(microscope.idx_distance_to_peak()),
+                    microscope.idx_distance_to_peak() == 0,
+                    abs(microscope.idx_distance_to_peak() <= 1),
+                    1,
+                ])
+                for iter in range(1, T):
+                    if y == 0:
+                        metrics[iter].append([
+                            abs(microscope.idx_distance_to_peak()),
+                            microscope.idx_distance_to_peak() == 0,
+                            abs(microscope.idx_distance_to_peak()) <= 1,
+                            metrics[iter - 1][-1][3],
+                        ])
+                        continue
+                    x = get_feature(microscope)
+                    a, c, y = model(x, a, c, iter)
+                    y = np.around(np.mean(y.cpu().data.numpy()) * 50).astype(np.int)
+                    if y != 0:
+                        direction = np.sign(y)
+                    microscope.move(y)
+                    metrics[iter].append([
+                        abs(microscope.idx_distance_to_peak()),
+                        microscope.idx_distance_to_peak() == 0,
+                        abs(microscope.idx_distance_to_peak()) <= 1,
+                        iter + 1,
+                    ])
+            microscope.history()
 
-    return np.array(metrics)
+            fm0 = microscope.get_current_focus_measure("SQUARED_GRADIENT")
+            # print(microscope.current_position.pos_idx, fm0, end=" ")
+            # survey the +1*direction position
+            microscope.move(1 * direction)
+            fm1 = microscope.get_current_focus_measure("SQUARED_GRADIENT")
+            # print(microscope.current_position.pos_idx, fm1, end=" ")
+            if fm0 >= fm1:
+                # survey the -1*direction position
+                microscope.move(-2 * direction)
+                fm_1 = microscope.get_current_focus_measure("SQUARED_GRADIENT")
+                # print(microscope.current_position.pos_idx, fm_1, end=" ")
+                # We select the position with maximum fm value among fm_1, fm0 and fm1
+                # but we needn't to make the final position located in the optimal position
+                # because we only need the optimal image
+
+                # We move the len in code for calculating metrics
+                if fm0 > fm_1:
+                    microscope.move(1 * direction)
+
+                metrics[T].append([
+                    abs(microscope.idx_distance_to_peak()),
+                    microscope.idx_distance_to_peak() == 0,
+                    abs(microscope.idx_distance_to_peak()) <= 1,
+                    metrics[iter - 1][-1][3] + 2,
+                ])
+            else:
+                # select the +1*direction position
+                metrics[T].append([
+                    abs(microscope.idx_distance_to_peak()),
+                    microscope.idx_distance_to_peak() == 0,
+                    abs(microscope.idx_distance_to_peak()) <= 1,
+                    metrics[iter - 1][-1][3] + 1,
+                ])
+            # print()
+
+    return np.array(metrics, dtype=np.float)
 
 
 if __name__ == '__main__':
-    # microscopies = evaluate(model, val_dataset, 5, os.path.join(log_dir, "checkpoint.txt"))
-    # l1_losses = []
-    # accuracies = []
-    # dof_acc = []
-    # for m in microscopies:
-    #     idx_distance = m.idx_distance_to_peak()
-    #     l1_losses.append(abs(idx_distance))
-    #     accuracies.append(idx_distance == 0)
-    #     dof_acc.append(abs(idx_distance) <= 1)
-    # print("l1 loss", np.mean(l1_losses))
-    # print("accuray", np.mean(accuracies))
-    # print("deep of field[-1 <= distance <= 1] accuracy", np.mean(dof_acc))
+    groups = []
+    for json_file in config["val_dataset_json_files"]:
+        groups.append(load_group_json(json_file, config["dataset_dir"]))
 
     if args.best_model is not None:
         print(args.best_model)
@@ -97,9 +143,24 @@ if __name__ == '__main__':
 
     model.to(device)
 
-    metrics = evaluate(model, val_dataset, 5)
-    for i in range(5):
-        print("iter {} l1 loss {:9.6f} accuracy {:9.6f} deep of field[-1 <= distance <= 1] accuracy {:9.6f}".format(i + 1, *np.mean(metrics[i], axis=0)))
+    T = 5
+    metrics = evaluate(model, groups, T)
+    for i in range(T):
+        print(
+            "T={} "
+            "l1 loss {:9.6f} "
+            "accuracy {:9.6f} "
+            "deep of field[-1 <= distance <= 1] accuracy {:9.6f} "
+            "searching times {}".format(i + 1, *np.mean(metrics[i], axis=0)))
 
-    for i in range(5):
-        print("{}\t{:9.6f}\t{:9.6f}\t{:9.6f}".format(i + 1, *np.mean(metrics[i], axis=0)))
+    print(
+        "T={} "
+        "l1 loss {:9.6f} "
+        "accuracy {:9.6f} "
+        "deep of field[-1 <= distance <= 1] accuracy {:9.6f} "
+        "searching times {}".format(T + 1, *np.mean(metrics[T], axis=0)))
+
+    for i in range(T):
+        print("{}\t{:9.6f}\t{:9.6f}\t{:9.6f}\t{}".format(i + 1, *np.mean(metrics[i], axis=0)))
+
+    print("{}\t{:9.6f}\t{:9.6f}\t{:9.6f}\t{}".format(T + 1, *np.mean(metrics[T], axis=0)))
