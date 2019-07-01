@@ -27,6 +27,9 @@ class Microscope(object):
             image = self.image_transform(image)
         return image
 
+    def get_current_focus_measure(self, key):
+        return self.group.positions[self.pos_cur].focus_measures[key]
+
     @property
     def is_in_right(self):
         return self.pos_cur == self.pos_max
