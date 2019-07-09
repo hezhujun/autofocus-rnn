@@ -29,7 +29,7 @@ log_dir = os.path.join(config["log_dir"], log_dir)
 model = model_rnn.MyMode(config["a_dim"], config["feature_type"], config["feature_len"])
 model.to(device)
 criterion = nn.MSELoss()
-optimizer = optim.Adam(model.parameters(), lr=config["learning_rate"])
+optimizer = optim.SGD(model.parameters(), lr=config["learning_rate"], momentum=0.9)
 
 
 def train(model, criterion, optimizer, num_epochs=25):
