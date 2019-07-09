@@ -2,7 +2,9 @@ from collections import OrderedDict
 
 import skimage.io as io
 
-from config import config
+from config import get_config
+
+config = get_config()
 
 
 class LRUCache:

@@ -1,8 +1,12 @@
-import os
 import argparse
-import numpy as np
+import os
+
 import matplotlib.pyplot as plt
-from config import config
+import numpy as np
+
+from config import get_config
+
+config = get_config()
 
 log_dir = "{}-{}".format(config["network_type"], config["feature_type"])
 log_dir = os.path.join(config["log_dir"], log_dir)
@@ -11,7 +15,6 @@ parser.add_argument("--dir", default=log_dir)
 args = parser.parse_args()
 
 if __name__ == '__main__':
-
     train_log_txt = os.path.join(args.dir, "train.txt")
     val_log_txt = os.path.join(args.dir, "val.txt")
 

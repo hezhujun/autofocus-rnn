@@ -2,7 +2,8 @@ import torch
 import numpy as np
 from dataset.group_utils import *
 from dataset.focus_measure_types import FOCUS_MEASURE_TYPES
-from config import config
+from config import get_config
+config = get_config()
 
 mu = None
 sigma = None

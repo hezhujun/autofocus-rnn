@@ -1,12 +1,60 @@
+import argparse
+import copy
 import sys
 import time
-import copy
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--network_type")
+parser.add_argument("--feature_type")
+parser.add_argument("--feature_len")
+parser.add_argument("--data_queue_len", type=int)
+parser.add_argument("--dataset_dir")
+parser.add_argument("--val_group", type=int)
+parser.add_argument("--a_dim", type=int)
+parser.add_argument("--gpu_devices")
+parser.add_argument("--learning_rate", type=float)
+parser.add_argument("--batch_size", type=int)
+parser.add_argument("--epochs", type=int)
+parser.add_argument("--reg", type=float)
+parser.add_argument("--num_workers", type=int)
+args = parser.parse_args()
+
+cfg = {}
+if args.network_type:
+    cfg["network_type"] = args.network_type
+if args.feature_type:
+    cfg["feature_type"] = args.feature_type
+if args.feature_len:
+    cfg["feature_len"] = args.feature_len
+if args.data_queue_len:
+    cfg["data_queue_len"] = args.data_queue_len
+if args.dataset_dir:
+    cfg["dataset_dir"] = args.dataset_dir
+if args.val_group:
+    cfg["val_group"] = args.val_group
+if args.a_dim:
+    cfg["a_dim"] = args.a_dim
+if args.gpu_devices:
+    cfg["gpu_devices"] = args.gpu_devices
+if args.learning_rate:
+    cfg["learning_rate"] = args.learning_rate
+if args.batch_size:
+    cfg["batch_size"] = args.batch_size
+if args.epochs:
+    cfg["epochs"] = args.epochs
+if args.reg:
+    cfg["reg"] = args.reg
+if args.num_workers:
+    cfg["num_workers"] = args.num_workers
+
+from config import get_config
+
+config = get_config(**cfg)
 
 import torch.nn as nn
 import torch.optim as optim
 
 import network.model_rnn1 as model_rnn
-from config import config
 from dataset.dataset_utils import *
 from save_utils import *
 

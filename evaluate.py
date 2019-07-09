@@ -1,8 +1,11 @@
 import argparse
+
 import network.model_rnn1 as model_rnn
-from config import config
+from config import get_config
 from dataset.dataset_utils import *
 from save_utils import *
+
+config = get_config()
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--best_model")
@@ -48,7 +51,7 @@ def get_feature(microscopy):
 def evaluate(model, val_groups, T):
     model.eval()
     # metrics: focus error, focus accuracy, focus accuracy in depth of field, seaching times
-    metrics = [[] for _ in range(T + 1)]   # 1 for the post stage
+    metrics = [[] for _ in range(T + 1)]  # 1 for the post stage
     for group in val_groups:
         for pos in group.positions:
             direction = 1

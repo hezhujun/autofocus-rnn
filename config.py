@@ -1,4 +1,6 @@
-_config = {
+import copy
+
+_default_config = {
     ###########################################################################
     # network architecture
     ###########################################################################
@@ -9,9 +11,9 @@ _config = {
     ###########################################################################
     # dataset
     ###########################################################################
-    "data_queue_len" : 500,
-    "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus",    # the directory of group/dataset
-    "dataset_json_files" : [
+    "data_queue_len": 500,
+    "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus",  # the directory of group/dataset
+    "dataset_json_files": [
         "dataset/data_json/group01.json",
         "dataset/data_json/group02.json",
         "dataset/data_json/group03.json",
@@ -52,18 +54,39 @@ _config = {
     "learning_rate": 0.001,
     "lr_milestones": [100, 150],
     "batch_size": 5,
-    "num_workers": 4,
     "epochs": 200,
     "reg": 0.0001,
+    "num_workers": 4,
 
 }
 
-_config["train_dataset_json_files"] = []
-_config["val_dataset_json_files"] = []
-for i in range(len(_config["dataset_json_files"])):
-    if i == (_config["val_group"] - 1):
-        _config["val_dataset_json_files"].append(_config["dataset_json_files"][i])
-    else:
-        _config["train_dataset_json_files"].append(_config["dataset_json_files"][i])
-_config["log_dir"] = "log/valgroup%02d" % (_config["val_group"])
-config = _config
+
+_config = None
+
+
+def get_config(**kwargs):
+    global _config
+    if _config is not None:
+        return _config
+    global _default_config
+    config = copy.deepcopy(_default_config)
+
+    for k, v in kwargs.items():
+        config[k] = v
+
+    for k, v in config.items():
+        if k == "dataset_json_files":
+            continue
+        print(k, v)
+
+    config["train_dataset_json_files"] = []
+    config["val_dataset_json_files"] = []
+
+    for i in range(len(config["dataset_json_files"])):
+        if i == (config["val_group"] - 1):
+            config["val_dataset_json_files"].append(config["dataset_json_files"][i])
+        else:
+            config["train_dataset_json_files"].append(config["dataset_json_files"][i])
+    config["log_dir"] = "log/valgroup%02d" % (config["val_group"])
+    _config = config
+    return config
