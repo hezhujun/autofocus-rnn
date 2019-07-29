@@ -12,7 +12,7 @@ _default_config = {
     # dataset
     ###########################################################################
     "data_queue_len": 500,
-    "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus",  # the directory of group/dataset
+    "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus",  # the directory of dataset
     "dataset_json_files": [
         "dataset/data_json/group01.json",
         "dataset/data_json/group02.json",
@@ -35,7 +35,7 @@ _default_config = {
         "dataset/data_json/group19.json",
         "dataset/data_json/group20.json",
     ],
-    "val_group": 9,
+    "val_group": 1,
 
     ###########################################################################
     # LSTM parameters
