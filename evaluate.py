@@ -50,13 +50,12 @@ def get_feature(microscopy):
 
 def evaluate(model, val_groups, T):
     model.eval()
-    # metrics: focus error, focus accuracy, focus accuracy in depth of field, seaching times
     metrics = [[] for _ in range(T + 1)]  # 1 for the post stage
     for group in val_groups:
         for pos in group.positions:
             direction = 1
             microscope = Microscope(group, pos.pos_idx, FiveCrop(500))
-            with torch.set_grad_enabled(False):
+            with torch.no_grad():
                 x = get_feature(microscope)
                 a = torch.zeros(x.size()[0], config["a_dim"]).to(device)
                 c = torch.zeros(x.size()[0], config["a_dim"]).to(device)

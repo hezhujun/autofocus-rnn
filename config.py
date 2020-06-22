@@ -55,7 +55,7 @@ _default_config = {
     "lr_milestones": [100, 150],
     "batch_size": 5,
     "epochs": 200,
-    "reg": 0.0001,
+    "wd": 0.0001,
     "num_workers": 4,
 
 }

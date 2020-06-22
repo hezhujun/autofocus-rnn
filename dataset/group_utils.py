@@ -96,4 +96,5 @@ def load_group_json(load_path, group_dirname=None):
         p.focus_measures = pos_dict["focus_measures"]
         p.dirname = group.abspath
         group.positions.append(p)
+    group.positions[group.pos_peak_idx].is_clear = True
     return group

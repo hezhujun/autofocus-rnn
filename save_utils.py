@@ -28,7 +28,7 @@ def save_checkpoint_records(checkpoint_files, save_dir):
             f.write("{}\n".format(checkpoint_file))
 
 
-def save_checkpoint(model, optimizer, epoch, path):
+def save_checkpoint(model, optimizer, scheduler, epoch, path):
     save_dir = os.path.dirname(path)
     checkpoint_files = search_checkpoint_records(save_dir)
     if not os.path.exists(save_dir):
@@ -43,6 +43,7 @@ def save_checkpoint(model, optimizer, epoch, path):
         "epoch": epoch,
         "model_state_dict": model.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
+        "scheduler_state_dict": scheduler.state_dict(),
     }, path)
 
     save_checkpoint_records(checkpoint_files, save_dir)
