@@ -1,6 +1,6 @@
 class Microscope(object):
 
-    def __init__(self, group, init_pos, transform=None):
+    def __init__(self, group, init_pos, transform=None, unit_distance=0.5):
         self.group = group
         self.pos_init = init_pos
         if init_pos < self.pos_min or init_pos > self.pos_max:
@@ -12,6 +12,7 @@ class Microscope(object):
         self.movement_out_of_right_count = 0
         self.movement_out_of_left_count = 0
         self.image_transform = transform
+        self.unit_distance = unit_distance  # distance per unit in z-axis
 
     def __repr__(self):
         return "Microscopy (%s) init pos %d" % (self.group.name, self.pos_init)
@@ -55,11 +56,11 @@ class Microscope(object):
         return abs(self.group.positions[1].z_coordinate - self.group.positions[0].z_coordinate)
 
     def convert_distance_to_idx_distance(self, distance):
-        idx_distance = round(distance / (self.units_per_min_step * 0.05))
+        idx_distance = round(distance / self.unit_distance)
         return int(idx_distance)
 
     def distance_to_peak(self):
-        return float((self.pos_peak - self.pos_cur) * self.units_per_min_step * 0.05)
+        return self.idx_distance_to_peak() * self.unit_distance
 
     def idx_distance_to_peak(self):
         return self.pos_peak - self.pos_cur

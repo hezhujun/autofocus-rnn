@@ -31,7 +31,6 @@ class Position(object):
 
 class Group(object):
     def __init__(self, name):
-        self.dirname = ""
         self.path = ""
         self.name = name
         self.pos_number = -1
@@ -43,7 +42,7 @@ class Group(object):
         if os.path.isabs(self.path):
             return self.path
         else:
-            return os.path.join(self.dirname, self.path)
+            return os.path.abspath(self.path)
 
     def sort_positions(self):
         self.positions.sort(key=lambda p: p.z_coordinate)
@@ -57,7 +56,6 @@ class Group(object):
 
 def dump_group_json(group, save_path):
     group_dict = {}
-    group_dict["dirname"] = group.dirname
     group_dict["path"] = group.path
     group_dict["name"] = group.name
     group_dict["pos_number"] = group.pos_number
@@ -76,15 +74,15 @@ def dump_group_json(group, save_path):
         json.dump(group_dict, f, indent=2, sort_keys=True)
 
 
-def load_group_json(load_path, group_dirname=None):
+def load_group_json(load_path, root=None):
     with open(load_path, "r") as f:
         group_dict = json.load(f)
 
     group = Group(group_dict["name"])
-    group.dirname = group_dict.get("dirname", "")
-    if group_dirname is not None:
-        group.dirname = group_dirname
-    group.path = group_dict["path"]
+    if root is not None:
+        group.path = os.path.join(root, group_dict["name"])
+    else:
+        group.path = group_dict["path"]
     group.pos_number = group_dict["pos_number"]
     group.pos_peak_idx = group_dict["pos_peak_idx"]
     for pos_dict in group_dict["positions"]:

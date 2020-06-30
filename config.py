@@ -1,4 +1,5 @@
 import copy
+import json
 
 _default_config = {
     ###########################################################################
@@ -11,30 +12,11 @@ _default_config = {
     ###########################################################################
     # dataset
     ###########################################################################
-    "data_queue_len": 500,
+    "data_queue_len": 100,
     "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus",  # the directory of dataset
-    "dataset_json_files": [
-        "dataset/data_json/group01.json",
-        "dataset/data_json/group02.json",
-        "dataset/data_json/group03.json",
-        "dataset/data_json/group04.json",
-        "dataset/data_json/group05.json",
-        "dataset/data_json/group06.json",
-        "dataset/data_json/group07.json",
-        "dataset/data_json/group08.json",
-        "dataset/data_json/group09.json",
-        "dataset/data_json/group10.json",
-        "dataset/data_json/group11.json",
-        "dataset/data_json/group12.json",
-        "dataset/data_json/group13.json",
-        "dataset/data_json/group14.json",
-        "dataset/data_json/group15.json",
-        "dataset/data_json/group16.json",
-        "dataset/data_json/group17.json",
-        "dataset/data_json/group18.json",
-        "dataset/data_json/group19.json",
-        "dataset/data_json/group20.json",
-    ],
+    "train_dataset_json_files": [],
+    "val_dataset_json_files": [],
+    "test_dataset_json_files": [],
     "val_group": 1,
 
     ###########################################################################
@@ -63,6 +45,15 @@ _default_config = {
 
 _config = None
 
+def load_json_list(json_file_list, json_files):
+    with open(json_file_list, "r") as f:
+        files = f.read()
+        files = files.split()
+        for file in files:
+            file = file.strip()
+            if file:
+                json_files.append("dataset/data_json/{}.json".format(file))
+
 
 def get_config(**kwargs):
     global _config
@@ -74,19 +65,12 @@ def get_config(**kwargs):
     for k, v in kwargs.items():
         config[k] = v
 
-    for k, v in config.items():
-        if k == "dataset_json_files":
-            continue
-        print(k, v)
+    load_json_list("dataset/train.txt", config["train_dataset_json_files"])
+    load_json_list("dataset/val.txt", config["val_dataset_json_files"])
+    load_json_list("dataset/test.txt", config["test_dataset_json_files"])
 
-    config["train_dataset_json_files"] = []
-    config["val_dataset_json_files"] = []
+    print(json.dumps(config, indent=2))
 
-    for i in range(len(config["dataset_json_files"])):
-        if i == (config["val_group"] - 1):
-            config["val_dataset_json_files"].append(config["dataset_json_files"][i])
-        else:
-            config["train_dataset_json_files"].append(config["dataset_json_files"][i])
-    config["log_dir"] = "log/valgroup%02d" % (config["val_group"])
+    config["log_dir"] = "log/"
     _config = config
     return config

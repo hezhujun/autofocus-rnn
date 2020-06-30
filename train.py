@@ -42,7 +42,7 @@ if args.batch_size:
     cfg["batch_size"] = args.batch_size
 if args.epochs:
     cfg["epochs"] = args.epochs
-if args.reg:
+if args.wd:
     cfg["wd"] = args.wd
 if args.num_workers:
     cfg["num_workers"] = args.num_workers
@@ -62,6 +62,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = config["gpu_devices"]
 
 train_dataset = AutoFocusDataset(config["train_dataset_json_files"], config["dataset_dir"], mode="train")
 val_dataset = AutoFocusDataset(config["val_dataset_json_files"], config["dataset_dir"], mode="val")
+# test_dataset = AutoFocusDataset(config["test_dataset_json_files"], config["dataset_dir"], mode="test")
 
 train_data_loader = AutoFocusDataLoader(train_dataset, config["batch_size"], config["feature_type"], True,
                                         ImageTransformFactory("train"))
