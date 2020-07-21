@@ -3,6 +3,71 @@ import os
 import torch
 
 
+class CheckPoint(object):
+
+    def __init__(self, root, save_fn, load_fn, record_filename="checkpoint.txt", num_record=-1, clean=False):
+        self.root = root
+        self.save_fn = save_fn
+        self.load_fn = load_fn
+        self.filename = record_filename
+        self.num_record = num_record
+
+        if not os.path.exists(root):
+            os.makedirs(root)
+
+        # clean the record file
+        record_filename = os.path.join(self.root, self.filename)
+        if clean and os.path.exists(record_filename):
+            with open(record_filename, "w") as f:
+                f.write('')
+
+    def read_record_file(self):
+        record_filename = os.path.join(self.root, self.filename)
+        if not os.path.exists(record_filename):
+            return []
+        with open(record_filename, "r") as f:
+            records = f.read().split()
+            records = [i for i in records if i.strip()]
+            return records
+
+    def write_record_file(self, records):
+        record_filename = os.path.join(self.root, self.filename)
+        with open(record_filename, "w") as f:
+            for record in records:
+                f.write("{}\n".format(record))
+
+    def save(self, filename, *args):
+        if not os.path.isabs(filename):
+            filename = os.path.join(self.root, filename)
+        self.save_fn(filename, *args)
+        records = self.read_record_file()
+        records.append(filename)
+
+        if 0 < self.num_record < len(records):
+            while self.num_record < len(records):
+                record = records.pop(0)
+                try:
+                    os.remove(record)
+                except Exception:
+                    pass
+
+        self.write_record_file(records)
+
+    def load(self, filename):
+        self.load_fn(filename)
+
+    def try_load_last(self):
+        record_filename = os.path.join(self.root, self.filename)
+        if not os.path.exists(record_filename):
+            return
+        with open(record_filename, "r") as f:
+            records = f.read().split()
+            records = [i for i in records if i.strip()]
+
+        if len(records) > 0:
+            self.load_fn(records[-1])
+
+
 def search_checkpoint_records(save_dir):
     checkpoint_files = []
     if os.path.exists(save_dir):

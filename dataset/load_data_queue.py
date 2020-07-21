@@ -33,8 +33,9 @@ _cache = LRUCache(config["data_queue_len"])
 
 
 def get_image(path):
-    image = _cache.get(path)
+    # image = _cache.get(path)
+    image = None
     if image is None:
         image = io.imread(path)
-        _cache.put(path, image)
+        # _cache.put(path, image)
     return image

@@ -23,9 +23,9 @@ class Microscope(object):
 
     @property
     def current_image(self):
-        image = self.group.positions[self.pos_cur].get_image()
-        if self.image_transform:
-            image = self.image_transform(image)
+        image = self.group.positions[self.pos_cur].get_image(self.image_transform)
+        # if self.image_transform:
+        #     image = self.image_transform(image)
         return image
 
     def get_current_focus_measure(self, key):
@@ -65,7 +65,8 @@ class Microscope(object):
     def idx_distance_to_peak(self):
         return self.pos_peak - self.pos_cur
 
-    def move(self, idx_distance):
+    def move(self, distance):
+        idx_distance = int(distance)
         self.want_move_history.append(idx_distance)
         if idx_distance == 0:
             self.move_history.append(0)

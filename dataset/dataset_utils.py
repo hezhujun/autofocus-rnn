@@ -7,16 +7,19 @@ from focus_measures_norm import calc_feature_mean_and_std
 from .focus_measure_types import FOCUS_MEASURE_TYPES
 from .group_utils import *
 from .microscope_utils import *
+import copy
 
 
 class AutoFocusDataset(Dataset):
 
-    def __init__(self, group_json_paths, dataset_dir, mode="train"):
+    def __init__(self, group_json_paths, dataset_dir, mode="train", load_all=False):
         self.groups = []
         for group_json_path in group_json_paths:
             self.groups.append(load_group_json(group_json_path, dataset_dir))
 
         self.mode = mode
+        self.transform_factory = ImageTransformFactory(self.mode)
+        self.load_all = load_all
 
         self.group_positions_lens = []
         for group in self.groups:
@@ -33,11 +36,14 @@ class AutoFocusDataset(Dataset):
         return int(np.sum(self.group_positions_lens))
 
     def __getitem__(self, idx):
-        # assert idx < self.__len__()
-        if idx >= self.__len__():
-            raise IndexError
         group, pos_idx = self.idx2group_position[idx]
-        return group, pos_idx
+        m = Microscope(copy.deepcopy(group), pos_idx, self.transform_factory.get_transform())
+        if self.load_all:
+            for position in m.group.positions:
+                position.get_image(m.image_transform)
+        else:
+            _ = m.current_image
+        return m
 
 
 class AutoFocusDataLoader(object):
@@ -72,14 +78,15 @@ class AutoFocusDataLoader(object):
             samples.append(m)
         return samples
 
-    def to_images_and_distances(self, microscopes):
+    @staticmethod
+    def to_images_and_distances(microscopes, feature_type):
         samples = []
         distances = []
         for m in microscopes:
             sample = None
-            if self.feature_type == "cnn_features":
+            if feature_type == "cnn_features":
                 sample = (m.current_image)
-            elif self.feature_type == "focus_measures":
+            elif feature_type == "focus_measures":
                 p = m.current_position
                 feature = p.focus_measures_to_feature_vector(FOCUS_MEASURE_TYPES)
                 feature = np.array(feature, dtype=np.float32)
@@ -91,7 +98,8 @@ class AutoFocusDataLoader(object):
             distances.append(m.idx_distance_to_peak())
         return samples, distances
 
-    def move(self, microscopes, distances):
+    @staticmethod
+    def move(microscopes, distances):
         for m, distance in zip(microscopes, distances):
             # m.move(m.convert_distance_to_idx_distance(distance))
             m.move(distance)
@@ -203,22 +211,34 @@ class ImageTransformFactory(object):
         if self.mode == "train":
             return transforms.Compose([
                 RandomCrop(500),
-                Normalize(),
+                # Normalize(),
                 transforms.ToTensor(),
+                # Normalize(),
+                transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(1.0, 1.0, 1.0)),
+            ])
+        elif self.mode == "val":
+            return transforms.Compose([
+                CenterCrop(500),
+                # Normalize(),
+                transforms.ToTensor(),
+                # Normalize(),
+                transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(1.0, 1.0, 1.0)),
             ])
         else:
             return transforms.Compose([
-                CenterCrop(500),
-                Normalize(),
-                transforms.ToTensor(),
+                FiveCrop(500),
+                transforms.Lambda(
+                    lambda crops: [transforms.ToTensor()(crop) for crop in crops]
+                ),
+                transforms.Lambda(
+                    # lambda crops: torch.stack([Normalize()(crop) for crop in crops])
+                    lambda crops: torch.stack([transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(1.0, 1.0, 1.0))(crop) for crop in crops])
+                ),
             ])
 
 
 class Normalize(object):
-    def __init__(self):
-        pass
 
     def __call__(self, tensor):
-        mean = np.mean(tensor)
-        # mean = np.mean(tensor, axis=(0, 1))
-        return (tensor - mean).astype(np.float32)
+        mean = torch.mean(tensor)
+        return tensor - mean

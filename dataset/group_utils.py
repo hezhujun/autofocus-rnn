@@ -13,14 +13,18 @@ class Position(object):
         self.pos_idx = -1
         self.is_clear = False
         self.focus_measures = {}
+        self.image = None
 
     def __repr__(self):
         return "Position {} index {}".format(self.z_coordinate, self.pos_idx)
 
-    def get_image(self):
-        img = get_image(os.path.join(self.dirname, self.filename))
+    def get_image(self, transform):
+        if self.image is None:
+            self.image = get_image(os.path.join(self.dirname, self.filename))
+            if transform is not None:
+                self.image = transform(self.image)
         # img = io.imread(os.path.join(self.dirname, self.filename))
-        return img
+        return self.image
 
     def focus_measures_to_feature_vector(self, types):
         vector = []

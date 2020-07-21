@@ -13,46 +13,48 @@ _default_config = {
     # dataset
     ###########################################################################
     "data_queue_len": 100,
-    "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus",  # the directory of dataset
+    # "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus2",  # the directory of dataset
+    "dataset_dir": "/root/userfolder/datasets/autofocus2",  # the directory of dataset
     "train_dataset_json_files": [],
     "val_dataset_json_files": [],
     "test_dataset_json_files": [],
-    "val_group": 1,
 
     ###########################################################################
     # LSTM parameters
     ###########################################################################
     "a_dim": 100,
-    "rnn_len": 5,
+    "rnn_len": 2,
 
     ###########################################################################
     # GPUs config
     ###########################################################################
-    "gpu_devices": "0",
+    "gpu_devices": 2,
 
     ###########################################################################
     # train hyper parameters
     ###########################################################################
     "learning_rate": 0.001,
-    "lr_milestones": [100, 150],
-    "batch_size": 5,
-    "epochs": 200,
-    "wd": 0.0001,
-    "num_workers": 4,
-
+    "lr_milestones": [12, 16],
+    "batch_size": 8,
+    "epochs": 20,
+    "wd": 1e-4,
+    "num_workers": 8,
+    "log_dir": "log/",
+    "pretrain_model": "experiment_rnn201/checkpoint-epoch19.pth",
 }
 
 
 _config = None
 
-def load_json_list(json_file_list, json_files):
+
+def load_json_list(json_file_list, json_files, pattern):
     with open(json_file_list, "r") as f:
         files = f.read()
         files = files.split()
         for file in files:
             file = file.strip()
             if file:
-                json_files.append("dataset/data_json/{}.json".format(file))
+                json_files.append(pattern.format(file))
 
 
 def get_config(**kwargs):
@@ -65,12 +67,12 @@ def get_config(**kwargs):
     for k, v in kwargs.items():
         config[k] = v
 
-    load_json_list("dataset/train.txt", config["train_dataset_json_files"])
-    load_json_list("dataset/val.txt", config["val_dataset_json_files"])
-    load_json_list("dataset/test.txt", config["test_dataset_json_files"])
+    # pattern = "/run/media/hezhujun/DATA1/Document/dataset/autofocus2/info/{}.json"
+    pattern = "/root/userfolder/datasets/autofocus2/info/{}.json"
+    load_json_list("dataset/train.txt", config["train_dataset_json_files"], pattern)
+    load_json_list("dataset/val.txt", config["val_dataset_json_files"], pattern)
+    load_json_list("dataset/test.txt", config["test_dataset_json_files"], pattern)
 
-    print(json.dumps(config, indent=2))
-
-    config["log_dir"] = "log/"
+    # print(json.dumps(config, indent=2))
     _config = config
     return config
