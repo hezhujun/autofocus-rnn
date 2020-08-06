@@ -28,8 +28,8 @@ class AutoFocusDataset(Dataset):
         self.idx2group_position = {}
         i = 0
         for group in self.groups:
-            for pos_idx in range(len(group.positions)):
-                self.idx2group_position[i] = (group, pos_idx)
+            for pos in group.positions:
+                self.idx2group_position[i] = (group, pos.pos_idx)
                 i += 1
 
     def __len__(self):
@@ -125,6 +125,7 @@ class RandomCrop(object):
             H, W, C = shape
             h = int(self.y * (H - self.size[0]))
             w = int(self.x * (W - self.size[1]))
+            # print((h, w))
             image = image[h:h + self.size[0], w:w + self.size[1], :]
         else:
             assert len(shape) == 2

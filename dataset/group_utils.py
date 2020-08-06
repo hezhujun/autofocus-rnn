@@ -2,7 +2,8 @@ import json
 import os
 
 import skimage.io as io
-from .load_data_queue import get_image
+from PIL import Image
+# from .load_data_queue import get_image
 
 
 class Position(object):
@@ -20,7 +21,9 @@ class Position(object):
 
     def get_image(self, transform):
         if self.image is None:
-            self.image = get_image(os.path.join(self.dirname, self.filename))
+            self.image = io.imread(os.path.join(self.dirname, self.filename))
+            # print(os.path.join(self.dirname, self.filename))
+            # self.image = Image.open(os.path.join(self.dirname, self.filename))
             if transform is not None:
                 self.image = transform(self.image)
         # img = io.imread(os.path.join(self.dirname, self.filename))
@@ -99,4 +102,5 @@ def load_group_json(load_path, root=None):
         p.dirname = group.abspath
         group.positions.append(p)
     group.positions[group.pos_peak_idx].is_clear = True
+    # group.positions = group.positions[30:-20]
     return group

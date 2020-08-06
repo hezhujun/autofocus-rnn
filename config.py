@@ -5,7 +5,7 @@ _default_config = {
     ###########################################################################
     # network architecture
     ###########################################################################
-    "network_type": "RNN-1",
+    "network_type": "CNN_ITERATOR",
     "feature_type": "cnn_features",  # "focus_measures", "cnn_features"
     "feature_len": 33,  # when feature_type=focus_measures
 
@@ -22,25 +22,29 @@ _default_config = {
     ###########################################################################
     # LSTM parameters
     ###########################################################################
-    "a_dim": 100,
+    "a_dim": 512,
     "rnn_len": 2,
 
     ###########################################################################
     # GPUs config
     ###########################################################################
-    "gpu_devices": 2,
+    "gpu_devices": 3,
 
     ###########################################################################
     # train hyper parameters
     ###########################################################################
-    "learning_rate": 0.001,
+    "learning_rate": 0.0001,
     "lr_milestones": [12, 16],
     "batch_size": 8,
     "epochs": 20,
     "wd": 1e-4,
     "num_workers": 8,
     "log_dir": "log/",
-    "pretrain_model": "experiment_rnn201/checkpoint-epoch19.pth",
+    # "pretrain_model": "CNN_ITERATOR3/checkpoint-epoch17.pth",
+    # "pretrain_model": "CNN_ITERATOR5/checkpoint-epoch15.pth",
+    # "pretrain_model": "CNN_ITERATOR6/checkpoint-epoch09.pth",
+    # "pretrain_model": "CNN_ITERATOR18/checkpoint-epoch14.pth",
+    "pretrain_model": "CNN_2HEAD1/checkpoint-epoch13.pth",
 }
 
 

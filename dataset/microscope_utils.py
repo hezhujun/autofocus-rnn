@@ -1,11 +1,11 @@
 class Microscope(object):
 
-    def __init__(self, group, init_pos, transform=None, unit_distance=0.5):
+    def __init__(self, group, init_pos_idx, transform=None, unit_distance=0.5):
         self.group = group
-        self.pos_init = init_pos
-        if init_pos < self.pos_min or init_pos > self.pos_max:
-            raise ValueError("init pos is invalid")
-        self.pos_cur = init_pos
+        self.pos_init = init_pos_idx
+        if init_pos_idx < self.pos_min or init_pos_idx > self.pos_max:
+            raise ValueError("init pos idx is invalid")
+        self.pos_cur = init_pos_idx
         self.want_move_history = []
         self.move_history = []
         self.pos_history = []
@@ -14,22 +14,22 @@ class Microscope(object):
         self.image_transform = transform
         self.unit_distance = unit_distance  # distance per unit in z-axis
 
+        self.pos_idx_to_position = {pos.pos_idx:pos for pos in group.positions}
+
     def __repr__(self):
-        return "Microscopy (%s) init pos %d" % (self.group.name, self.pos_init)
+        return "Microscopy (%s) init pos idx %d" % (self.group.name, self.pos_init)
 
     @property
     def current_position(self):
-        return self.group.positions[self.pos_cur]
+        return self.pos_idx_to_position[self.pos_cur]
 
     @property
     def current_image(self):
-        image = self.group.positions[self.pos_cur].get_image(self.image_transform)
-        # if self.image_transform:
-        #     image = self.image_transform(image)
+        image = self.pos_idx_to_position[self.pos_cur].get_image(self.image_transform)
         return image
 
     def get_current_focus_measure(self, key):
-        return self.group.positions[self.pos_cur].focus_measures[key]
+        return self.pos_idx_to_position[self.pos_cur].focus_measures[key]
 
     @property
     def is_in_right(self):
@@ -99,3 +99,34 @@ class Microscope(object):
             print("want to move %02d actually move %d to pos %02d" % (
                 self.want_move_history[i], self.move_history[i], self.pos_history[i]), end=" ")
         print()
+
+
+# from dataset.group_utils import *
+# if __name__ == '__main__':
+#     group = load_group_json("/root/userfolder/datasets/autofocus2/info/1.json", "/root/userfolder/datasets/autofocus2")
+#     group.positions = group.positions[30:-20]
+#     m = Microscope(group, 30)
+#     assert m.current_position == group.positions[0]
+#     assert m.is_in_right == False
+#     assert m.is_in_focus == False
+#     assert m.pos_peak == group.pos_peak_idx
+#     assert m.pos_min == 30
+#     assert m.pos_max == 79
+#     assert m.idx_distance_to_peak() == group.pos_peak_idx - 30
+#     m.move(group.pos_peak_idx - 30)
+#     assert m.current_position == group.positions[group.pos_peak_idx - 30]
+#     assert m.is_in_right == False
+#     assert m.is_in_focus == True
+#     assert m.pos_peak == group.pos_peak_idx
+#     assert m.pos_min == 30
+#     assert m.pos_max == 79
+#     assert m.idx_distance_to_peak() == 0
+#     m.move(79 - group.pos_peak_idx)
+#     assert m.current_position == group.positions[-1]
+#     assert m.is_in_right == True
+#     assert m.is_in_focus == False
+#     assert m.pos_peak == group.pos_peak_idx
+#     assert m.pos_min == 30
+#     assert m.pos_max == 79
+#     assert m.idx_distance_to_peak() == group.pos_peak_idx - 79
+#     m.history()

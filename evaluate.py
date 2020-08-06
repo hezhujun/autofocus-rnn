@@ -34,15 +34,14 @@ def evaluate(model, groups, device, config):
             # print(group.name, pos)
             microscope = Microscope(copy.deepcopy(group), pos.pos_idx, transform_factory.get_transform())
             x = get_feature(microscope, config).to(device)
-            a = torch.zeros(x.shape[0], config["a_dim"]).to(device)
-            c = torch.zeros(x.shape[0], config["a_dim"]).to(device)
-            a, c, y = model(x, a, c, 0)
+            h = torch.zeros(x.shape[0], config["a_dim"]).to(device)
+            h, y = model(x, h, 0)
             y = np.around(torch.mean(y).cpu().numpy() * 50).astype(np.int)
             microscope.move(y)
             metrics[0].append([
                 np.abs(microscope.idx_distance_to_peak()),
                 microscope.idx_distance_to_peak() == 0,
-                np.abs(microscope.idx_distance_to_peak() <= 1),
+                np.abs(microscope.idx_distance_to_peak()) <= 1,
                 1
             ])
             for i in range(1, config["rnn_len"]):
@@ -50,21 +49,21 @@ def evaluate(model, groups, device, config):
                     metrics[i].append([
                         np.abs(microscope.idx_distance_to_peak()),
                         microscope.idx_distance_to_peak() == 0,
-                        np.abs(microscope.idx_distance_to_peak() <= 1),
+                        np.abs(microscope.idx_distance_to_peak()) <= 1,
                         metrics[i-1][-1][3],
                     ])
                     continue
                 x = get_feature(microscope, config).to(device)
-                a, c, y = model(x, a, c, i)
+                h, y = model(x, h, i)
                 y = np.around(torch.mean(y).cpu().numpy()*50).astype(np.int)
                 microscope.move(y)
                 metrics[i].append([
                         np.abs(microscope.idx_distance_to_peak()),
                         microscope.idx_distance_to_peak() == 0,
-                        np.abs(microscope.idx_distance_to_peak() <= 1),
+                        np.abs(microscope.idx_distance_to_peak()) <= 1,
                         i + 1,
                     ])
-
+            # microscope.history()
         # print(group.name, "l1 loss {:9.6f} accuracy {:9.6f} deep of field[-1 <= distance <= 1] accuracy {:9.6f} "
         #       "iterations {}".format(*np.mean(metrics, axis=0)))
         print(group.name, end=" ")
@@ -91,8 +90,8 @@ if __name__ == '__main__':
     log_dir = "{}-{}".format(config["network_type"], config["feature_type"])
     log_dir = os.path.join(config["log_dir"], log_dir)
 
-    from network.model_rnn1 import MyMode
-    model = MyMode(config["a_dim"], config["feature_type"], config["feature_len"])
+    from network.model_rnn1 import MyModule
+    model = MyModule(config["a_dim"], config["feature_type"], config["feature_len"])
 
     def load_fn(filepath):
         if os.path.exists(filepath):

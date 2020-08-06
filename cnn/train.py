@@ -94,8 +94,8 @@ class MyModel(nn.Module):
         for name, child in net.named_children():
             layers.append((name, child))
         model = nn.Sequential()
-        for name, chlid in layers[:-1]:
-            model.add_module(name, chlid)
+        for name, child in layers[:-1]:
+            model.add_module(name, child)
         self.resnet = model
         self.fc = nn.Linear(x_dim, x_dim)
         self.reg = nn.Linear(x_dim, 1)
