@@ -2,52 +2,45 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from config import get_config
 # from network.resnet import resnet18
 from torchvision.models import resnet18, resnet50
 from collections import OrderedDict
+
+
+class MyGRU(nn.Module):
+    def __init__(self, input_size, hidden_size):
+        super(MyGRU, self).__init__()
+        self.conv_c_x = nn.Conv2d(input_size, hidden_size, 1)
+        self.conv_c_h = nn.Conv2d(input_size, hidden_size, 1)
+
+        self.conv_u_x = nn.Conv2d(input_size, hidden_size, 1)
+        self.conv_u_h = nn.Conv2d(input_size, hidden_size, 1)
+
+    def forward(self, x, h):
+        c = torch.tanh(self.conv_c_x(x) + self.conv_c_h(h))
+        u = torch.sigmoid(self.conv_u_x(x) + self.conv_u_h(h))
+        h_next = u * c + (-u + 1) * h
+        return h_next
 
 
 class Head(nn.Module):
     def __init__(self, in_channels, hidden_dim):
         super(Head, self).__init__()
         self.gru = nn.GRUCell(in_channels, hidden_dim)
-        self.fn0 = nn.Linear(hidden_dim, hidden_dim)
-        self.fn = nn.Linear(hidden_dim, 1)
+        self.fn1 = nn.Linear(hidden_dim, hidden_dim)
+        self.reg = nn.Linear(hidden_dim, 1)
 
     def forward(self, x, h):
-        x = self.gru(x, h)
-        x = torch.tanh(self.fn0(x))
-        y = self.fn(x)
-        return y
-
-
-class TanhHead(nn.Module):
-    def __init__(self, in_channels):
-        super(TanhHead, self).__init__()
-        self.fn = nn.Linear(in_channels, in_channels)
-        self.fn1 = nn.Linear(in_channels, 1)
-
-    def forward(self, x, h):
-        x = F.tanh(self.fn(x))
-        y = self.fn1(x)
-        return y
-
-
-class _Model(nn.Module):
-    def __init__(self):
-        super(_Model, self).__init__()
-        self.cnn = resnet18(pretrained=True).conv1
-        x_dims = self.cnn.out_channels
-        self.gru = nn.GRUCell(x_dims, x_dims)
-        self.reg = nn.Linear(x_dims, 1)
-
-    def forward(self, x, h):
-        x = self.cnn(x)
-        x = F.adaptive_avg_pool2d(x, (1, 1))
-        x = torch.flatten(x, 1)
+        # x: (BS, C, 1, 1)
+        # h: (BS, C, 1, 1)
         y = self.gru(x, h)
+
+        y = self.fn1(y)
+        y = torch.tanh(y)
+
         y = self.reg(y)
-        return x, y
+        return y
 
 
 class MyModule(nn.Module):
@@ -92,7 +85,7 @@ class MyModule(nn.Module):
         # print("model forward i={}".format(i))
         if self.feature_type == "cnn_features":
             x = self.cnn(x)
-            x = torch.flatten(x, 1)
+            x = torch.flatten(x, start_dim=1)
         y = self.heads[i](x, h)
         y = y.squeeze(dim=1)
         return x, y
@@ -100,9 +93,19 @@ class MyModule(nn.Module):
     def train(self, mode=True):
         super(MyModule, self).train(mode)
         if self.freeze_bn:
+            print("freeze bn params")
             for m in self.cnn.modules():
                 if isinstance(m, nn.BatchNorm2d):
                     m.eval()
                     if self.freeze_bn_affine:
                         m.weight.requires_grad = False
                         m.bias.requires_grad = False
+
+            config = get_config()
+            for i in range(config["iter_len"] - 1):
+                for m in self.heads[i].modules():
+                    if isinstance(m, nn.BatchNorm2d):
+                        m.eval()
+                        if self.freeze_bn_affine:
+                            m.weight.requires_grad = False
+                            m.bias.requires_grad = False

@@ -35,7 +35,7 @@ def train(model, criterion, optimizer, scheduler, config, checkpoint, logger):
 
             h = torch.zeros(len(samples), config["a_dim"]).to(device)
             loss = []
-            for i in range(0, config["rnn_len"]):
+            for i in range(0, config["iter_len"]):
                 images, distances = AutoFocusDataLoader.to_images_and_distances(samples, config["feature_type"])
                 images = torch.stack(images, dim=0)
                 images = images.to(device)
@@ -45,8 +45,8 @@ def train(model, criterion, optimizer, scheduler, config, checkpoint, logger):
                 _y = np.around(y.detach().cpu().numpy() * 50).astype(np.int64)
                 AutoFocusDataLoader.move(samples, _y)
 
-            # loss = sum(loss)
-            loss = loss[-1]
+            loss = sum(loss)
+            # loss = loss[-1]
             _loss = loss.detach().cpu().numpy()
             _loss = float(_loss)
             train_losses.append(_loss * len(samples))
@@ -69,10 +69,10 @@ def train(model, criterion, optimizer, scheduler, config, checkpoint, logger):
         for samples in val_data_loader:
             with torch.no_grad():
                 h = torch.zeros(len(samples), config["a_dim"]).to(device)
-                for i in range(0, config["rnn_len"]):
+                for i in range(0, config["iter_len"]):
                     images, distances = AutoFocusDataLoader.to_images_and_distances(samples, config["feature_type"])
                     images = torch.stack(images, dim=0).to(device)
-                    distances = np.array(distances, dtype=np.float32) * 0.02
+                    distances = np.array(distances, dtype=np.float32)
                     h, y = model(images, h, i)
                     _y = np.around(y.detach().cpu().numpy() * 50).astype(np.int64)
                     if _y[0] == 0:
@@ -80,7 +80,7 @@ def train(model, criterion, optimizer, scheduler, config, checkpoint, logger):
                     else:
                         AutoFocusDataLoader.move(samples, _y)
 
-                l1_loss = np.abs(y.cpu().numpy() - distances)
+                l1_loss = np.abs(_y - distances)
                 l1_loss = float(l1_loss)
 
                 val_l1_losses.append(l1_loss * len(samples))
@@ -98,10 +98,18 @@ def train(model, criterion, optimizer, scheduler, config, checkpoint, logger):
     return best_model, best_epoch
 
 
-class BatchCollator(object):
-    def __init__(self, load_all=False):
-        self.load_all = load_all
+# class BatchCollator(object):
+#     def __call__(self, batch):
+#         ms = []
+#         for group, transformed_images, pos_idxs in batch:
+#             for pos_idx in pos_idxs:
+#                 m = Microscope(copy.deepcopy(group), pos_idx)
+#                 for pos, image in zip(m.group.positions, transformed_images):
+#                     pos.transformed_image = image
+#                 ms.append(m)
+#         return ms
 
+class BatchCollator(object):
     def __call__(self, batch):
         return batch
 
@@ -117,11 +125,11 @@ if __name__ == '__main__':
     train_dataset = AutoFocusDataset(config["train_dataset_json_files"], config["dataset_dir"], mode="train")
     val_dataset = AutoFocusDataset(config["val_dataset_json_files"], config["dataset_dir"], mode="val")
 
-    train_data_loader = DataLoader(train_dataset, batch_size=config["batch_size"], shuffle=True,
+    train_data_loader = DataLoader(train_dataset, batch_size=config["batch_size"], shuffle=False,
                                    num_workers=config["num_workers"],
-                                   collate_fn=BatchCollator(False))
+                                   collate_fn=BatchCollator())
     val_data_loader = DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=config["num_workers"],
-                                 collate_fn=BatchCollator(False))
+                                 collate_fn=lambda batch: batch)
 
     device = torch.device("cuda", config["gpu_devices"] if config["gpu_devices"] else 0)
     device_cpu = torch.device("cpu")
@@ -134,67 +142,77 @@ if __name__ == '__main__':
 
     begin_epoch = 0
     model = model_rnn.MyModule(config["a_dim"], config["feature_type"], config["feature_len"])
-    for p in model.parameters():
+
+    print("load pretrain model from", config["pretrain_model"])
+    state_dicts = torch.load(config["pretrain_model"], map_location="cpu")
+    if state_dicts.get("model_state_dict"):
+        model.load_state_dict(state_dicts["model_state_dict"], strict=False)
+    else:
+        model.load_state_dict(state_dicts, strict=False)
+
+    for p in model.cnn.parameters():
         p.requires_grad = False
-    if config["rnn_len"] > 1 and model.feature_type == "cnn_features":
-        # for p in model.cnn.parameters():
-        #     p.requires_grad = False
-        # for i in range(config["rnn_len"] - 1):
-        #     for p in model.heads[i].parameters():
-        #         p.requires_grad = False
+    for i in range(config["iter_len"] - 1):
+        for p in model.heads[i].parameters():
+            p.requires_grad = False
+    # if config["iter_len"] > 1 and model.feature_type == "cnn_features":
+    #
+    #     print("load pretrain model from", config["pretrain_model"])
+    #     state_dicts = torch.load(config["pretrain_model"], map_location="cpu")
+    #     if state_dicts.get("model_state_dict"):
+    #         model.load_state_dict(state_dicts["model_state_dict"], strict=False)
+    #     else:
+    #         model.load_state_dict(state_dicts, strict=False)
 
-        print("load pretrain model from", config["pretrain_model"])
-        state_dicts = torch.load(config["pretrain_model"], map_location="cpu")
-        if state_dicts.get("model_state_dict"):
-            model.load_state_dict(state_dicts["model_state_dict"], strict=False)
-        else:
-            model.load_state_dict(state_dicts, strict=False)
-
-    if config["rnn_len"] == 1:
+    if config["iter_len"] == 1:
         criterion = nn.L1Loss()
     else:
         criterion = nn.L1Loss()
     model.to(device)
 
-    if config["rnn_len"] == 1:
-        optimizer = optim.Adam([
-            {"params": model.cnn.parameters()},
-            {"params": model.heads[0].parameters()},
-            # {"params": model.models[0].parameters()},
-        ], lr=config["learning_rate"], weight_decay=config["wd"])
-        # optimizer = optim.SGD([
-        #     {"params": model.cnn.parameters()},
-        #     {"params": model.heads[0].parameters()},
-        #     # {"params": model.models[0].parameters()},
-        # ], lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
-        for p in model.cnn.parameters():
-            p.requires_grad = True
-        for p in model.heads[0].parameters():
-            p.requires_grad = True
-        # for p in model.models[0].parameters():
-        #     p.requires_grad = True
-    else:
-        model.freeze_bn = True
-        model.freeze_bn_affine = True
-        last_iter = config["rnn_len"] - 1
-        optimizer = optim.Adam([
-            {"params": model.heads[last_iter].parameters()},
-            # {"params": model.models[last_iter].parameters()},
-        ], lr=config["learning_rate"], weight_decay=config["wd"])
-        # optimizer = optim.SGD([
-        #     {"params": model.heads[last_iter].parameters()},
-        #     # {"params": model.models[last_iter].parameters()},
-        # ], lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
-        for p in model.heads[last_iter].parameters():
-            p.requires_grad = True
-        # for p in model.models[last_iter].parameters():
-        #     p.requires_grad = True
-    # if config["rnn_len"] > 1 and model.feature_type == "cnn_features":
-    #     optimizer = optim.SGD([
-    #         {"params": model.heads[config["rnn_len"] - 1].parameters()},
-    #     ], lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
+    # if config["iter_len"] == 1:
+    #     optimizer = optim.Adam([
+    #         {"params": model.cnn.parameters()},
+    #         {"params": model.heads[0].parameters()},
+    #         # {"params": model.models[0].parameters()},
+    #     ], lr=config["learning_rate"], weight_decay=config["wd"])
+    #     # optimizer = optim.SGD([
+    #     #     {"params": model.cnn.parameters()},
+    #     #     {"params": model.heads[0].parameters()},
+    #     #     # {"params": model.models[0].parameters()},
+    #     # ], lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
+    #     for p in model.cnn.parameters():
+    #         p.requires_grad = True
+    #     for p in model.heads[0].parameters():
+    #         p.requires_grad = True
+    #     # for p in model.models[0].parameters():
+    #     #     p.requires_grad = True
     # else:
-    #     optimizer = optim.SGD(model.parameters(), lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
+    #     model.freeze_bn = True
+    #     model.freeze_bn_affine = True
+    #     last_iter = config["iter_len"] - 1
+    #     optimizer = optim.Adam([
+    #         {"params": model.heads[last_iter].parameters()},
+    #         # {"params": model.models[last_iter].parameters()},
+    #     ], lr=config["learning_rate"], weight_decay=config["wd"])
+    #     # optimizer = optim.SGD([
+    #     #     {"params": model.heads[last_iter].parameters()},
+    #     #     # {"params": model.models[last_iter].parameters()},
+    #     # ], lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
+    #     for p in model.heads[last_iter].parameters():
+    #         p.requires_grad = True
+    #     # for p in model.models[last_iter].parameters():
+    #     #     p.requires_grad = True
+    # # if config["iter_len"] > 1 and model.feature_type == "cnn_features":
+    # #     optimizer = optim.SGD([
+    # #         {"params": model.heads[config["iter_len"] - 1].parameters()},
+    # #     ], lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
+    # # else:
+    # #     optimizer = optim.SGD(model.parameters(), lr=config["learning_rate"], momentum=0.9, weight_decay=config["wd"])
+    model.freeze_bn = True
+    model.freeze_bn_affine = True
+    train_module = model.heads[config["iter_len"] - 1]
+    optimizer = optim.Adam(train_module.parameters(), lr=config["learning_rate"], weight_decay=config["wd"])
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=config["lr_milestones"], gamma=0.1)
 
     def save_fn(filepath, model, optimizer, scheduler, epoch):

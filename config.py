@@ -13,8 +13,8 @@ _default_config = {
     # dataset
     ###########################################################################
     "data_queue_len": 100,
-    # "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus2",  # the directory of dataset
-    "dataset_dir": "/root/userfolder/datasets/autofocus2",  # the directory of dataset
+    "dataset_dir": "/run/media/hezhujun/DATA1/Document/dataset/autofocus2",  # the directory of dataset
+    # "dataset_dir": "/root/userfolder/datasets/autofocus2",  # the directory of dataset
     "train_dataset_json_files": [],
     "val_dataset_json_files": [],
     "test_dataset_json_files": [],
@@ -23,7 +23,7 @@ _default_config = {
     # LSTM parameters
     ###########################################################################
     "a_dim": 512,
-    "rnn_len": 2,
+    "iter_len": 5,
 
     ###########################################################################
     # GPUs config
@@ -33,6 +33,7 @@ _default_config = {
     ###########################################################################
     # train hyper parameters
     ###########################################################################
+    "image_split": [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
     "learning_rate": 0.0001,
     "lr_milestones": [12, 16],
     "batch_size": 8,
@@ -44,7 +45,7 @@ _default_config = {
     # "pretrain_model": "CNN_ITERATOR5/checkpoint-epoch15.pth",
     # "pretrain_model": "CNN_ITERATOR6/checkpoint-epoch09.pth",
     # "pretrain_model": "CNN_ITERATOR18/checkpoint-epoch14.pth",
-    "pretrain_model": "CNN_2HEAD1/checkpoint-epoch13.pth",
+    "pretrain_model": "CNNGRU18/checkpoint-epoch00.pth",
 }
 
 
@@ -71,8 +72,8 @@ def get_config(**kwargs):
     for k, v in kwargs.items():
         config[k] = v
 
-    # pattern = "/run/media/hezhujun/DATA1/Document/dataset/autofocus2/info/{}.json"
-    pattern = "/root/userfolder/datasets/autofocus2/info/{}.json"
+    pattern = "/run/media/hezhujun/DATA1/Document/dataset/autofocus2/info/{}.json"
+    # pattern = "/root/userfolder/datasets/autofocus2/info/{}.json"
     load_json_list("dataset/train.txt", config["train_dataset_json_files"], pattern)
     load_json_list("dataset/val.txt", config["val_dataset_json_files"], pattern)
     load_json_list("dataset/test.txt", config["test_dataset_json_files"], pattern)

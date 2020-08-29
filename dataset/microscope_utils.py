@@ -1,6 +1,10 @@
+import os
+from PIL import Image
+
+
 class Microscope(object):
 
-    def __init__(self, group, init_pos_idx, transform=None, unit_distance=0.5):
+    def __init__(self, group, init_pos_idx, left_up_point, transform=None, unit_distance=0.5):
         self.group = group
         self.pos_init = init_pos_idx
         if init_pos_idx < self.pos_min or init_pos_idx > self.pos_max:
@@ -15,6 +19,7 @@ class Microscope(object):
         self.unit_distance = unit_distance  # distance per unit in z-axis
 
         self.pos_idx_to_position = {pos.pos_idx:pos for pos in group.positions}
+        self.left_up_point = left_up_point
 
     def __repr__(self):
         return "Microscopy (%s) init pos idx %d" % (self.group.name, self.pos_init)
@@ -25,7 +30,19 @@ class Microscope(object):
 
     @property
     def current_image(self):
-        image = self.pos_idx_to_position[self.pos_cur].get_image(self.image_transform)
+        if self.left_up_point is None:
+            return self.current_position.get_image(self.image_transform)
+
+        pos = self.current_position
+        if pos.image is not None:
+            return pos.image
+        x1, y1 = self.left_up_point
+        save_path = "{}_{}_{}_{}_{}.png".format(os.path.join(pos.dirname, pos.filename), x1, y1, 500, 500)
+        # print(save_path)
+        image = Image.open(save_path)
+        if self.image_transform:
+            image = self.image_transform(image)
+        pos.image = image
         return image
 
     def get_current_focus_measure(self, key):

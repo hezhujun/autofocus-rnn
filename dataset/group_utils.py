@@ -1,7 +1,6 @@
 import json
 import os
 
-import skimage.io as io
 from PIL import Image
 # from .load_data_queue import get_image
 
@@ -13,21 +12,26 @@ class Position(object):
         self.z_coordinate = -1
         self.pos_idx = -1
         self.is_clear = False
+        self.image_W = -1
+        self.image_H = -1
         self.focus_measures = {}
         self.image = None
+        self.transformed_image = None
 
     def __repr__(self):
         return "Position {} index {}".format(self.z_coordinate, self.pos_idx)
 
     def get_image(self, transform):
-        if self.image is None:
-            self.image = io.imread(os.path.join(self.dirname, self.filename))
-            # print(os.path.join(self.dirname, self.filename))
-            # self.image = Image.open(os.path.join(self.dirname, self.filename))
-            if transform is not None:
-                self.image = transform(self.image)
-        # img = io.imread(os.path.join(self.dirname, self.filename))
-        return self.image
+        if transform is not None:
+            if self.image is None:
+                image = Image.open(os.path.join(self.dirname, self.filename))
+                image = transform(image)
+                self.image = image
+            else:
+                image = self.image
+        else:
+            image = self.transformed_image
+        return image
 
     def focus_measures_to_feature_vector(self, types):
         vector = []
@@ -75,6 +79,8 @@ def dump_group_json(group, save_path):
         pos_dict["z_coordinate"] = p.z_coordinate
         pos_dict["pos_idx"] = p.pos_idx
         pos_dict["is_clear"] = p.is_clear
+        pos_dict["image_W"] = p.image_W
+        pos_dict["image_H"] = p.image_H
         pos_dict["focus_measures"] = p.focus_measures
         group_dict["positions"].append(pos_dict)
     with open(save_path, "w") as f:
@@ -98,6 +104,8 @@ def load_group_json(load_path, root=None):
         p.z_coordinate = pos_dict["z_coordinate"]
         p.pos_idx = pos_dict["pos_idx"]
         p.is_clear = pos_dict["is_clear"]
+        p.image_W = pos_dict["image_W"]
+        p.image_H = pos_dict["image_H"]
         p.focus_measures = pos_dict["focus_measures"]
         p.dirname = group.abspath
         group.positions.append(p)

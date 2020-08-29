@@ -1,14 +1,38 @@
 import argparse
 import torch
 import copy
+import torchvision.transforms as transforms
 
 from dataset.dataset_utils import *
 from save_utils import *
 
+point_center = (0.5, 0.5)
+point1 = (0.2, 0.2)
+point2 = (0.2, 0.8)
+point3 = (0.8, 0.2)
+point4 = (0.8, 0.8)
+points = [point_center, point1, point2, point3, point4]
+
+test_image_transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(1.0, 1.0, 1.0)),
+            ])
+
 
 def get_feature(microscopy, config):
     if config["feature_type"] == "cnn_features":
-        images = microscopy.current_image
+        pos = microscopy.current_position
+        W = pos.image_W - 500
+        H = pos.image_H - 500
+        images = []
+        for point in points:
+            x1 = int(W * point[0])
+            y1 = int(H * point[1])
+            save_path = "{}_{}_{}_{}_{}.png".format(os.path.join(pos.dirname, pos.filename), x1, y1, 500, 500)
+            image = Image.open(save_path)
+            image = test_image_transform(image)
+            images.append(image)
+        images = torch.stack(images)
         return images
     elif config["feature_type"] == "focus_measures":
         p = microscopy.current_position
@@ -29,10 +53,10 @@ def evaluate(model, groups, device, config):
     model.eval()
     for group in groups:
         group = copy.deepcopy(group)
-        metrics = [[] for _ in range(config["rnn_len"])]
+        metrics = [[] for _ in range(config["iter_len"])]
         for pos in group.positions:
             # print(group.name, pos)
-            microscope = Microscope(copy.deepcopy(group), pos.pos_idx, transform_factory.get_transform())
+            microscope = Microscope(copy.deepcopy(group), pos.pos_idx, None, transform_factory.get_transform())
             x = get_feature(microscope, config).to(device)
             h = torch.zeros(x.shape[0], config["a_dim"]).to(device)
             h, y = model(x, h, 0)
@@ -44,7 +68,7 @@ def evaluate(model, groups, device, config):
                 np.abs(microscope.idx_distance_to_peak()) <= 1,
                 1
             ])
-            for i in range(1, config["rnn_len"]):
+            for i in range(1, config["iter_len"]):
                 if y == 0:
                     metrics[i].append([
                         np.abs(microscope.idx_distance_to_peak()),
@@ -67,7 +91,7 @@ def evaluate(model, groups, device, config):
         # print(group.name, "l1 loss {:9.6f} accuracy {:9.6f} deep of field[-1 <= distance <= 1] accuracy {:9.6f} "
         #       "iterations {}".format(*np.mean(metrics, axis=0)))
         print(group.name, end=" ")
-        for i in range(0, config["rnn_len"]):
+        for i in range(0, config["iter_len"]):
             print("{} {:9.6f} {:9.6f} {:9.6f} {}".format(i + 1, *np.mean(metrics[i], axis=0)), end=" ")
         print()
 
